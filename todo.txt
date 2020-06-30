@@ -1,0 +1,35 @@
+TO DO
+-------------------------------------------------------------------------------
+- make server not crash
+? usr leave is bugged and user join is bugged (serverside)
+    - fix bug where room is closed due to false amount of users
+    - update conn list according to user leave/user join (serverside)
+? get consistent with playback after song finishes and queue is empty
+? fix software breaking if queue is empty after first song
+- add feature to queue playlist/albums
+? queue has bug that clears queue and alters queue if song from queue is fetched (visual?)
+- port locked after server is stopped?
+    - add "stop server" function
+? visual bug when queue item is fetched for playback. Removes first index item of queue in queue window  -- debug is added, further investigation required
+? get current playback to every joining client
+- get timestamp runs into broken pipe error as it calls user that has disconnected
+- comments
+-------------------------------------------------------------------------------
+TECHNICALLY WORKING BUT NEEDS IMPROVEMENT
+-------------------------------------------------------------------------------
+-/x fix get timestamp (timestamp is reveivecd but ping hampers it...add unix timestamp?)
+-------------------------------------------------------------------------------
+IMPLEMENTED AND TESTED
+-------------------------------------------------------------------------------
+x add queue to room_metadata (serverside) tested
+x fix queue server and client
+x explore and fix bug that clears queue (most likely in shiftqueue function)
+x fix bug that almost crashes client PC if no active device found
+x fix backgroundbreak after leaving room
+x make catch start playback exceptions
+x del from queue not working 
+x fix bug where queue shows spotify uri and title
+    x fix bug where queue multiplies
+x fix bug where "delete from queue" affects different song depending on client
+x fix bug where song progress bar is filled 2 early
+x fix current song stretching entire ui
