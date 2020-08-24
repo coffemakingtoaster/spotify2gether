@@ -12,7 +12,9 @@ import threading
 import requests
 from PIL import ImageTk,Image
 import time
+import background_tasks
 
+#todo: global variables should be removed 
 token = ""
 _FINISH = False
 _PAUSE  = False
@@ -30,44 +32,41 @@ def main():
     root.mainloop()
 
 
-class check_for_user:
-    def __init__(self):                                                                     #opens tkinter window asking for username of spotify acc
-        #read settinsgfile and if user is not found/already set then:
-        global username
-        self.login_frame = tkinter.Frame(root)
-        self.login_frame.grid()
-        tkinter.Label(self.login_frame, text = "Enter Username").grid(row=0)
-        e1 = tkinter.Entry(self.login_frame)
-        e1.grid(row=1,column=0)
-        #tkinter.Button(self.login_frame,text="Enter",command = lambda: self.get_token(e1.get())).grid(row=1, column = 1)
-        tkinter.Button(self.login_frame,text="Enter",command = lambda: check_for_user.get_token(e1.get(),self.login_frame)).grid(row=1, column = 1)
-        root.mainloop()
+def check_for_user():
+    global username
+    login_frame = tkinter.Frame(root)
+    login_frame.grid()
+    tkinter.Label(login_frame, text = "Enter Username").grid(row=0)
+    e1 = tkinter.Entry(login_frame)
+    e1.grid(row=1,column=0)
+    tkinter.Button(login_frame,text="Enter",command = lambda: check_for_user.get_token(e1.get(),self.login_frame)).grid(row=1, column = 1)
+    root.mainloop()
     
-    def get_token(username1,login_frame):
-        global token
-        global username
-        username = username1
-        print(str(username))
-        if username=="":
-            raise_error("Please enter username!")                   #raises error for empty username
-            return
+def get_token(username1,login_frame):
+    global token
+    global username
+    username = username1
+    print(str(username))
+    if username=="":
+        Error_handler.raise_error("Please enter username!",root)                   #raises error for empty username
+        return
         #scope has to be passed to spotify api this determines what the application will be able to do
-        scope = "user-read-playback-state streaming playlist-read-collaborative streaming user-modify-playback-state user-read-private playlist-modify-public user-read-currently-playing playlist-read-private app-remote-control user-library-read"
-        try:
-            print(username)
-            token = util.prompt_for_user_token(username,scope=scope,show_dialog=True)    #call to spotify api to get token
-            print("token:"+token)
-            print(spotipy.Spotify(auth=token).me())
-            login_frame.destroy()                                       #if successful window gets destroyed (now main funntion will start)
-            x = os.getcwd()   
-            if os.path.exists("sp_tmp") is not True:
-                os.mkdir("sp_tmp")    
-            os.chdir(os.path.join(x,"sp_tmp"))  
-            print(os.getcwd())  
-            main()
-        except Exception as e:                                          #catches error and forwards it to raise_error class
-            print(str(e))
-            raise_error(e)
+    scope = "user-read-playback-state streaming playlist-read-collaborative streaming user-modify-playback-state user-read-private playlist-modify-public user-read-currently-playing playlist-read-private app-remote-control user-library-read"
+    try:
+        print(username)
+        token = util.prompt_for_user_token(username,scope=scope,show_dialog=True)    #call to spotify api to get token
+        print("token:"+token)
+        print(spotipy.Spotify(auth=token).me())
+        login_frame.destroy()                                       #if successful window gets destroyed (now main funntion will start)
+        x = os.getcwd()   
+        if os.path.exists("sp_tmp") is not True:
+            os.mkdir("sp_tmp")    
+        os.chdir(os.path.join(x,"sp_tmp"))  
+        print(os.getcwd())  
+        main()
+    except Exception as e:                                          #catches error and forwards it to raise_error class
+        print(str(e))
+        Error_handler.raise_error(e,root)
 
 
 
@@ -80,10 +79,10 @@ def est_conn(id,main_frame,cmd):                                  #establish con
     try:
         s.connect((HOST,PORT))
     except:
-        raise_fatal_Error("Connection to sever could not be established!")
+        Error_handler.raise_fatal_Error("Connection to sever could not be established!",root)
     payload = {"command":str(cmd)}
     if cmd=="create":
-        room_meta = generate_room_meta(id)
+        room_meta = background_tasks.generate_room_meta(id,token)
         payload["room_meta"] = room_meta
     else:
         payload["id"]=str(id)
@@ -107,29 +106,14 @@ def est_conn(id,main_frame,cmd):                                  #establish con
                 break
         room_meta = pickle.loads(room_data)      #loads received data into usable form...might change to pickle rather than json
         if room_meta["state"]=="invalid":
-            raise_error("invalid room id")
+            Error_handler.raise_error("invalid room id")
             return
         else:
             room_id = id
     print (room_meta)
-    room(room_meta,main_frame,s,room_id)
+    r = room(room_meta,main_frame,s,room_id)
 
     
-def generate_room_meta(room_name):
-    sp = spotipy.Spotify(auth=token)
-    songs = []
-    #song = sp.currently_playing(market=None)
-    song = "spotify:track:3Zigq1lfHmFRlyoRrh9k2s"
-    print(song)
-    songs.append(song)
-    #songs.append(song[context][uri])
-    users = []
-    x = sp.me()["display_name"]
-    print(x)
-    users.append(x)
-    timestamp = "00000"
-    room_meta = {"room_name":str(room_name),"current_song":songs,"progress":timestamp,"users":users,"is_playing":True}
-    return room_meta
 
 
 class room():
@@ -139,7 +123,7 @@ class room():
         try:
             self.sp = spotipy.Spotify(auth=token)
         except Exception as e:
-            raise_fatal_Error("No valid token! Further information: "+str(e))               #raises fatal error! See difference between raise_error and raise_fatal_Error below
+            Error_handler.raise_fatal_Error("No valid token! Further information: "+str(e))               #raises fatal error! See difference between raise_error and raise_fatal_Error below
         main_frame.destroy()
         room_frame = tkinter.Frame(root)
         self.s = s
@@ -154,7 +138,7 @@ class room():
                 self.sp.start_playback(uris=room_meta["current_song"])
                 break
             except:
-                raise_error("No active playback")
+                Error_handler.raise_error("No active playback")
         json_array = json.loads(json.dumps(self.sp.devices()))              
         if room_meta["is_playing"] is True:
             self.playback_state = 1
@@ -664,7 +648,7 @@ class room():
         try:
             self.sp.track(song_uri)
         except:
-            raise_error("Invalid uri")
+            Error_handler.raise_error("Invalid uri")
             return
         songs = []
         songs.append(song_uri)
@@ -689,18 +673,6 @@ class room():
         return
         
 
-def raise_error(Error_message):                                                                 #raise errors. This function is used for errors that do not require the program to shut down
-    Error_window = tkinter.Toplevel(root)
-    tkinter.Label(Error_window,text=str(Error_message)).pack()
-    tkinter.Button(Error_window,text="Ok",command = Error_window.destroy).pack()
-    root.wait_window(Error_window)
-
-def raise_fatal_Error(Error_message):                                                           #raise errors that require the app to close. Directly calls sys.exit()
-    fatal_Error = tkinter.Toplevel(root)
-    tkinter.Label(fatal_Error,text=str(Error_message))
-    tkinter.Button(fatal_Error,text="Ok and exit",command = sys.exit)
-
-
 def disable_event():
     filelist = [f for f in os.listdir("sp_tmp")]
     for file in filelist:
@@ -716,17 +688,12 @@ def disable_event():
 if __name__ == "__main__":
     os.environ["SPOTIPY_CLIENT_ID"] = "SPOTIPY_CLIENT_ID"                        # initalizes app-client-values. Idealy those should be hidden from user
     os.environ["SPOTIPY_CLIENT_SECRET"] = "SPOTIPY_CLIENT_SECRET"                    # and pulled from a server rather than being hard-coded
-    os.environ["SPOTIPY_REDIRECT_URI"] = "SPOTIPY_REDIRECT_URI    
-    #try:
-    #    token=spotipy.oauth2.SpotifyClientCredentials().get_access_token()                      #checks for existing token and alters value of token variable
-    #    print("found token:"+str(token))
-    #except Exception as e:
-    #    print(e)
+    os.environ["SPOTIPY_REDIRECT_URI"] = "SPOTIPY_REDIRECT_URI"    
     root = tkinter.Tk()
     root.geometry("400x250")
     root.protocol("WM_DELETE_WINDOW", disable_event)
-    root.resizable(False, False)
-    if token == "":
-        print("checking for user")
-        check_for_user()                                                                #if no token exists function is called
+    root.resizable(False, False)    
+    print("checking for user")
+    Error_handler = background_tasks.Error_handler(root)
+    check_for_user()                                                                #if no token exists function is called
 
